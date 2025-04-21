@@ -1,25 +1,24 @@
-# pip install transformers
-# pip install streamlit
-# pip install torch
+# pip install pdfplumber
+# pip install python-docx
 
-import streamlit as st
-from transformers import pipeline
+import pdfplumber
+from docx import Document
 
-# Title for the app
-st.title('Fill in the Blank Bot')
+# Function to convert PDF to Word
+def convert_pdf_to_word(pdf_path, word_path):
+    # Create a Word document
+    doc = Document()
 
-# Load the fill-mask pipeline 
-fill_mask = pipeline('fill-mask')
+    # Open and extract text from PDF
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                doc.add_paragraph(text)
+    
+    # Save the Word file
+    doc.save(word_path)
+    print("Conversion complete!")
 
-# Text area for the user input
-user_input = st.text_area("Enter a sentence with a <mask> in place of the missing word")
-
-# Button to trigger the fill-mask function
-if st.button('Fill the Blank'):
-    # Predict the missing words 
-    results = fill_mask(user_input)
-
-    # Display the top 5 predictions 
-    st.write("Top predictions:")
-    for result in results:
-        st.write(f"Prediction: {result['token_str']}, Confidence: {round(result['score'], 4)}")
+# Example usage
+convert_pdf_to_word("example.pdf", "converted.docx")
