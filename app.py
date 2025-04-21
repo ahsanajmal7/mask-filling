@@ -2,7 +2,7 @@
 
 import streamlit as st
 from whisper import load_model
-from pydub import AudioSegment
+import ffmpeg
 import tempfile
 import os
 
@@ -17,10 +17,9 @@ uploaded_audio = st.file_uploader("Upload an audio file", type=["mp3", "m4a", "w
 
 def convert_audio(input_path, output_path):
     """
-    Converts audio files to wav format.
+    Converts audio files to wav format using ffmpeg-python.
     """
-    audio = AudioSegment.from_file(input_path)
-    audio.export(output_path, format="wav")
+    ffmpeg.input(input_path).output(output_path).run()
     return output_path
 
 # When the user uploads a file
