@@ -1,37 +1,51 @@
-# pip install streamlit openai-whisper ffmpeg-python
+# pip install streamlit whisper pydub ffmpeg-python
 
 import streamlit as st
-import whisper
+from whisper import load_model
+from pydub import AudioSegment
 import tempfile
 import os
 
-st.title("🎙️ Speech to Text Converter")
+# Load Whisper model
+model = load_model("base")
+
+# Title for the Streamlit app
+st.title("🎤 Speech to Text")
 
 # Upload audio file
-audio_file = st.file_uploader("Upload an audio file", type=["mp3", "wav", "m4a"])
+uploaded_audio = st.file_uploader("Upload an audio file", type=["mp3", "m4a", "wav", "flac"])
 
-if audio_file is not None:
-    st.audio(audio_file, format="audio/wav")
+def convert_audio(input_path, output_path):
+    """
+    Converts audio files to wav format.
+    """
+    audio = AudioSegment.from_file(input_path)
+    audio.export(output_path, format="wav")
+    return output_path
 
-    with st.spinner("Transcribing..."):
-        # Save uploaded file to a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio:
-            temp_audio.write(audio_file.read())
-            temp_audio_path = temp_audio.name
+# When the user uploads a file
+if uploaded_audio is not None:
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_audio_file:
+        # Save uploaded file to temporary location
+        tmp_audio_file.write(uploaded_audio.read())
+        temp_path = tmp_audio_file.name
 
-        # Load Whisper model
-        model = whisper.load_model("base")  # You can use "tiny", "base", "small", "medium", "large"
+        # Convert the audio file to .wav if it's not already in .wav format
+        if not temp_path.endswith(".wav"):
+            wav_path = temp_path.replace(os.path.splitext(temp_path)[1], ".wav")
+            convert_audio(temp_path, wav_path)
+            audio_path = wav_path
+        else:
+            audio_path = temp_path
 
-        # Transcribe audio
-        result = model.transcribe(temp_audio_path)
-
-        # Clean up
-        os.remove(temp_audio_path)
-
-        # Show the result
-        st.subheader("📝 Transcription:")
+        # Transcribe the audio to text using Whisper
+        result = model.transcribe(audio_path)
+        
+        # Display the transcribed text
+        st.subheader("Transcribed Text:")
         st.write(result["text"])
 
-        # Download button
-        st.download_button("Download Transcription", result["text"], file_name="transcription.txt")
-
+        # Optionally, clean up the temporary files after use
+        os.remove(temp_path)
+        if audio_path != temp_path:
+            os.remove(audio_path)
