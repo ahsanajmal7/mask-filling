@@ -1,4 +1,4 @@
 streamlit
-openai-whisper
+whisper
+pydub
 ffmpeg-python
-torch  # Required for Whisper to run
