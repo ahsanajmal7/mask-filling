@@ -1,4 +1,4 @@
 streamlit
-opencv-python-headless
-numpy
-pillow
+openai-whisper
+ffmpeg-python
+torch  # Required for Whisper to run
