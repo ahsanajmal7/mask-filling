@@ -1,79 +1,37 @@
-# pip install streamlit opencv-python pillow numpy
+# pip install streamlit openai-whisper ffmpeg-python
 
 import streamlit as st
-import numpy as np
-import cv2
-from PIL import Image
+import whisper
+import tempfile
+import os
 
-st.title("🖼️ Image Enhancer Tool")
+st.title("🎙️ Speech to Text Converter")
 
-# Upload image
-uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+# Upload audio file
+audio_file = st.file_uploader("Upload an audio file", type=["mp3", "wav", "m4a"])
 
-if uploaded_file:
-    image = Image.open(uploaded_file).convert("RGB")
-    img_array = np.array(image)
+if audio_file is not None:
+    st.audio(audio_file, format="audio/wav")
 
-    st.subheader("Original Image")
-    st.image(img_array, use_column_width=True)
+    with st.spinner("Transcribing..."):
+        # Save uploaded file to a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio:
+            temp_audio.write(audio_file.read())
+            temp_audio_path = temp_audio.name
 
-    # Convert to OpenCV format
-    img_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        # Load Whisper model
+        model = whisper.load_model("base")  # You can use "tiny", "base", "small", "medium", "large"
 
-    # -------------------------------
-    # 1. Sharpening to "Unblur"
-    kernel_sharpen = np.array([[0, -1, 0],
-                               [-1, 5,-1],
-                               [0, -1, 0]])
-    sharpened = cv2.filter2D(img_cv, -1, kernel_sharpen)
+        # Transcribe audio
+        result = model.transcribe(temp_audio_path)
 
-    # -------------------------------
-    # 2. Auto Brightness and Contrast
-    def automatic_brightness_contrast(image, clip_hist_percent=1):
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        hist = cv2.calcHist([gray],[0],None,[256],[0,256])
-        hist_size = len(hist)
+        # Clean up
+        os.remove(temp_audio_path)
 
-        accumulator = []
-        accumulator.append(float(hist[0]))
-        for index in range(1, hist_size):
-            accumulator.append(accumulator[index -1] + float(hist[index]))
+        # Show the result
+        st.subheader("📝 Transcription:")
+        st.write(result["text"])
 
-        maximum = accumulator[-1]
-        clip_hist_percent *= (maximum/100.0)
-        clip_hist_percent /= 2.0
+        # Download button
+        st.download_button("Download Transcription", result["text"], file_name="transcription.txt")
 
-        minimum_gray = 0
-        while accumulator[minimum_gray] < clip_hist_percent:
-            minimum_gray += 1
-
-        maximum_gray = hist_size -1
-        while accumulator[maximum_gray] >= (maximum - clip_hist_percent):
-            maximum_gray -= 1
-
-        alpha = 255 / (maximum_gray - minimum_gray)
-        beta = -minimum_gray * alpha
-
-        auto_result = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
-        return auto_result
-
-    bright_contrast = automatic_brightness_contrast(sharpened)
-
-    # -------------------------------
-    # 3. Auto White Balance (Color Correction)
-    result = cv2.cvtColor(bright_contrast, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(result)
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-    cl = clahe.apply(l)
-    final_lab = cv2.merge((cl, a, b))
-    final_bgr = cv2.cvtColor(final_lab, cv2.COLOR_LAB2BGR)
-    final_rgb = cv2.cvtColor(final_bgr, cv2.COLOR_BGR2RGB)
-
-    # -------------------------------
-    # Show enhanced image
-    st.subheader("Enhanced Image ✨")
-    st.image(final_rgb, use_column_width=True)
-
-    # Download button
-    result_image = Image.fromarray(final_rgb)
-    st.download_button("Download Enhanced Image", data=result_image.tobytes(), file_name="enhanced.png", mime="image/png")
